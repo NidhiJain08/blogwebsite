@@ -1,5 +1,7 @@
 import {db} from "../db.js"
-import bcrypt from "bcryptjs";
+import bcrypt, { hash } from "bcryptjs";
+import jwt from "jsonwebtoken";
+
 export const register=(req,res)=>{
 
     //CHECK IF USER ALREADY EXISTS
@@ -31,8 +33,32 @@ export const register=(req,res)=>{
 });
 };
 export const login=(req,res)=>{
-    
-}
+    //check user exists
+    const q="SELECT * from user where username=?"
+    db.query(q, [req.body.username],(err,data)=>{
+        if(err){
+            return res.json(err);
+        }
+        if(data.length===0){
+            return res.status(404).json("user not found");
+        }
+
+        //if all ok, then check pwd
+        const isPwdCorrect= bcrypt.compareSync(req.body.password,data[0].password);
+        if(!isPwdCorrect){
+            return res.status(404).json("wrong username or pwd");
+        }
+        //if everything is fine(pwd is correct), then 
+        const token=jwt.sign({id:data[0].id},"jwtkey");
+        const {password,...other}=data[0]
+
+        res.cookie("access_token",token,{
+            httpOnly:true,   //means ,any script cant reach this cookie directly,only can be used while making api requests
+        })
+        .status(200)
+        .json(other);
+    });
+};
 
 export const logout=(req,res)=>{
     
